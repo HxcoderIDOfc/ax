@@ -54,6 +54,48 @@ function limitFromMe(raw={}){
   return {used,limit,unlimited,usage,limits,remaining:u?.remaining||{},subscription:sub,limit_label:unlimited?'Unlimited':u?.limit_label}
 }
 
+function safeAccountContext(raw={}){
+  const u=raw?.user||raw?.data?.user||raw?.data||raw
+  const sub=u?.subscription||{}
+  const storage=u?.storage||{}
+  const usage=u?.usage||{}
+  const limits=u?.limits||{}
+  const remaining=u?.remaining||{}
+  const unlimited=Boolean(sub?.unlimited||u?.unlimited||String(u?.limit_label||'').toLowerCase()==='unlimited')
+  const safe={
+    name:u?.name||null,
+    role:sub?.role||u?.role||null,
+    plan:sub?.plan||u?.plan||null,
+    unlimited,
+    storage:{
+      used_bytes:storage?.used_bytes??0,
+      limit_bytes:storage?.limit_bytes??null,
+      remaining_bytes:storage?.remaining_bytes??null,
+      files:storage?.files??null
+    },
+    usage:{
+      input_tokens:usage?.input_tokens??0,
+      output_tokens:usage?.output_tokens??0,
+      vision:usage?.vision??0,
+      files:usage?.files??0,
+      search:usage?.search??0,
+      sandbox:usage?.sandbox??0
+    },
+    limits:{
+      input_tokens:limits?.input_tokens??null,
+      output_tokens:limits?.output_tokens??null,
+      vision:limits?.vision??null,
+      files:limits?.files??null
+    },
+    remaining:{
+      input_tokens:remaining?.input_tokens??null,
+      output_tokens:remaining?.output_tokens??null,
+      vision:remaining?.vision??null
+    }
+  }
+  return {role:'system',content:`Konteks akun Axynera user saat ini (data live dari /v1/me; gunakan hanya bila relevan dengan pertanyaan user): ${JSON.stringify(safe)}. Jangan pernah mengklaim atau menampilkan token sesi, API key, email, Google token, atau internal user ID karena data tersebut tidak diberikan.`}
+}
+
 export async function getCredits(){
   const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.')
   const [meResult,creditResult]=await Promise.allSettled([
@@ -83,6 +125,10 @@ function prepareConversation(input){if(Array.isArray(input))conversation=input.f
 export async function streamChat(input,{onToken,onStage,mode='cepat'}={}){
   const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.')
   prepareConversation(input)
+  try{
+    const me=await req(`${AUTH}/v1/me`,{headers:authHeaders(t)},12000)
+    conversation=[safeAccountContext(me),...conversation].slice(-41)
+  }catch{}
   activeChatController=new AbortController()
   const timeout=setTimeout(()=>activeChatController?.abort(),120000)
   let full='',eventSeq=0
