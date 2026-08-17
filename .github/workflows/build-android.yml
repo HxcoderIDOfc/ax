@@ -54,7 +54,6 @@ jobs:
           text = p.read_text()
           marker = '<application'
           block = '''
-              <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.CAMERA" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -86,6 +85,19 @@ jobs:
           if 'android.permission.RECORD_AUDIO' not in text:
               text = text.replace(marker, block + '\n    ' + marker, 1)
           p.write_text(text)
+
+      - name: Generate stable debug keystore
+        run: |
+          mkdir -p "$HOME/.config/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.config/.android/debug.keystore" \
+            -storepass android \
+            -alias AndroidDebugKey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Show debug signing SHA-1
         working-directory: android
