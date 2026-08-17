@@ -36,14 +36,14 @@ async function request(url, options = {}, timeout = 15000) {
 async function authRequest(path, token, options = {}) {
   const headers = { Accept: 'application/json', ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
-  const res = await request(`${AUTH_BASE}${path}`, { ...options, headers })
+  const res = await request(`${AUTH_BASE}${path}`, { ...options, headers }, 20000)
   return readJson(res)
 }
 
 async function apiRequest(path, token, options = {}) {
   const headers = { Accept: 'application/json', ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
-  const res = await request(`${API_BASE}${path}`, { ...options, headers }, 30000)
+  const res = await request(`${API_BASE}${path}`, { ...options, headers }, 90000)
   return readJson(res)
 }
 
@@ -64,14 +64,7 @@ export async function restoreSession() {
 
 export async function loginWithGoogle(googleIdToken) {
   if (!googleIdToken) throw new Error('Google ID token tidak tersedia.')
-
-  // Support common payload names so the app stays compatible with Auth SDK revisions.
-  const payloads = [
-    { googleIdToken },
-    { idToken: googleIdToken },
-    { id_token: googleIdToken }
-  ]
-
+  const payloads = [{ googleIdToken }, { idToken: googleIdToken }, { id_token: googleIdToken }]
   let lastError
   for (const payload of payloads) {
     try {
@@ -129,20 +122,40 @@ function extractText(result) {
   return result?.text ?? result?.message ?? result?.content ?? result?.choices?.[0]?.message?.content ?? 'Nera tidak mengirim jawaban.'
 }
 
-export async function sendChat(prompt) {
+function normalizeMessages(input) {
+  const items = Array.isArray(input) ? input : [{ role: 'user', content: String(input || '') }]
+  return items
+    .filter(m => m && ['user','assistant','system'].includes(m.role) && typeof m.content === 'string')
+    .map(m => ({ role: m.role, content: m.content }))
+    .slice(-40)
+}
+
+export async function sendChat(messages) {
   const token = await loadSession()
   if (!token) throw new Error('Session Axynera tidak tersedia.')
-  const text = Array.isArray(prompt) ? prompt.at(-1)?.content : prompt
-  const result = await apiRequest('/v1/chat/completions', token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: 'user', content: text || '' }],
-      stream: false
-    })
-  })
-  return extractText(result)
+  const payload = {
+    model: MODEL,
+    messages: normalizeMessages(messages),
+    stream: false
+  }
+
+  let lastError
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await apiRequest('/v1/chat/completions', token, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      return extractText(result)
+    } catch (e) {
+      lastError = e
+      const retryable = !e?.status || [429, 500, 502, 503, 504].includes(e.status) || String(e?.message || '').toLowerCase().includes('timeout')
+      if (!retryable || attempt === 1) break
+      await new Promise(r => setTimeout(r, 800))
+    }
+  }
+  throw lastError || new Error('Tidak dapat menghubungi Nera.')
 }
 
 async function ensureSdk() {
@@ -161,7 +174,6 @@ async function ensureSdk() {
   return nera
 }
 
-// Fitur tambahan tetap lewat SDK, tetapi tidak menghalangi startup/login/chat utama.
 export async function streamChat(prompt){const nera=await ensureSdk();const text=Array.isArray(prompt)?prompt.at(-1)?.content:prompt;return nera.stream(text||'')}
 export async function vision(prompt,file){return (await ensureSdk()).vision(prompt,file)}
 export async function webSearch(query){return (await ensureSdk()).search(query)}
