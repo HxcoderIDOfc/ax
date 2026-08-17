@@ -19,6 +19,9 @@ jobs:
       VITE_NERA_API_URL: https://api.axynera.my.id/v1/chat/completions
       VITE_NERA_MODEL: Nera-V4
       NERA_KEYSTORE_BASE64: ${{ secrets.NERA_KEYSTORE_BASE64 }}
+      NERA_KEYSTORE_PASSWORD: ${{ secrets.NERA_KEYSTORE_PASSWORD }}
+      NERA_KEY_ALIAS: ${{ secrets.NERA_KEY_ALIAS }}
+      NERA_KEY_PASSWORD: ${{ secrets.NERA_KEY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -37,6 +40,14 @@ jobs:
           "$JAVA_HOME_21_X64/bin/java" -version
           "$JAVA_HOME_21_X64/bin/javac" -version
 
+      - name: Verify required secrets
+        run: |
+          test -n "$VITE_GOOGLE_WEB_CLIENT_ID" || (echo "::error::VITE_GOOGLE_WEB_CLIENT_ID belum diisi" && exit 1)
+          test -n "$NERA_KEYSTORE_BASE64" || (echo "::error::NERA_KEYSTORE_BASE64 belum diisi" && exit 1)
+          test -n "$NERA_KEYSTORE_PASSWORD" || (echo "::error::NERA_KEYSTORE_PASSWORD belum diisi" && exit 1)
+          test -n "$NERA_KEY_ALIAS" || (echo "::error::NERA_KEY_ALIAS belum diisi" && exit 1)
+          test -n "$NERA_KEY_PASSWORD" || (echo "::error::NERA_KEY_PASSWORD belum diisi" && exit 1)
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
@@ -49,7 +60,14 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Configure Android app
+      - name: Restore permanent signing key
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/android/keystore"
+          echo "$NERA_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/android/keystore/nera-release.jks"
+          keytool -list -keystore "$GITHUB_WORKSPACE/android/keystore/nera-release.jks" -storepass "$NERA_KEYSTORE_PASSWORD" -alias "$NERA_KEY_ALIAS" >/dev/null
+          echo "Permanent Nera AI signing key loaded successfully."
+
+      - name: Configure Android app and release signing
         shell: python
         env:
           VERSION_CODE: ${{ github.run_number }}
@@ -98,37 +116,36 @@ jobs:
           vc = os.environ['VERSION_CODE']
           g = re.sub(r'versionCode\s+\d+', f'versionCode {vc}', g)
           g = re.sub(r'versionName\s+"[^"]+"', f'versionName "0.1.{vc}"', g)
+
+          signing = '''
+    signingConfigs {
+        neraRelease {
+            storeFile file("../keystore/nera-release.jks")
+            storePassword System.getenv("NERA_KEYSTORE_PASSWORD")
+            keyAlias System.getenv("NERA_KEY_ALIAS")
+            keyPassword System.getenv("NERA_KEY_PASSWORD")
+        }
+    }
+'''
+          if 'signingConfigs {' not in g:
+              g = g.replace('    buildTypes {', signing + '\n    buildTypes {', 1)
+
+          g = g.replace('release {\n', 'release {\n            signingConfig signingConfigs.neraRelease\n', 1)
           gradle.write_text(g)
 
-      - name: Prepare signing key
+      - name: Show permanent signing certificate
         run: |
-          mkdir -p "$HOME/.config/.android"
-          if [ -n "$NERA_KEYSTORE_BASE64" ]; then
-            echo "$NERA_KEYSTORE_BASE64" | base64 --decode > "$HOME/.config/.android/debug.keystore"
-            echo "Using persistent Nera AI signing key from GitHub Secret."
-          else
-            echo "::warning::NERA_KEYSTORE_BASE64 belum ada. APK ini bisa dibuild, tetapi update lintas-build belum dijamin sampai signing key permanen dipasang."
-            keytool -genkeypair -v \
-              -keystore "$HOME/.config/.android/debug.keystore" \
-              -storepass android \
-              -alias AndroidDebugKey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Nera AI,O=Axynera,C=ID"
-          fi
+          keytool -list -v \
+            -keystore "$GITHUB_WORKSPACE/android/keystore/nera-release.jks" \
+            -storepass "$NERA_KEYSTORE_PASSWORD" \
+            -alias "$NERA_KEY_ALIAS" | grep -E 'SHA1:|SHA256:'
 
-      - name: Show signing SHA-1
+      - name: Build signed release APK
         working-directory: android
-        run: ./gradlew signingReport --no-daemon
-
-      - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Nera-AI-v0.1.${{ github.run_number }}.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk Nera-AI-v0.1.${{ github.run_number }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
