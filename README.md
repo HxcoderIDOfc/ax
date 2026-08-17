@@ -5,8 +5,9 @@ Nera AI adalah aplikasi chat AI Android berbasis React, Vite, dan Capacitor.
 ## Identitas aplikasi
 
 - App name: `Nera AI`
-- Android package: `id.axynera.neraai`
+- Android package: `com.axynera.neraai`
 - API: `https://api.axynera.my.id/v1/chat/completions`
+- SDK docs: `https://sdk.axynera.my.id`
 - Model default: `Nera-V4`
 
 ## Build APK manual di GitHub
@@ -26,9 +27,13 @@ Tambahkan repository secret:
 
 `VITE_GOOGLE_WEB_CLIENT_ID`
 
-Isi dengan OAuth Client ID tipe **Web application** dari Google Cloud. Untuk Android, buat juga OAuth Client tipe **Android** dengan package `id.axynera.neraai` dan SHA-1 sertifikat APK yang digunakan.
+Isi dengan OAuth Client ID tipe **Web application** dari Google Cloud. Untuk Android, buat juga OAuth Client tipe **Android** dengan package `com.axynera.neraai` dan SHA-1 sertifikat APK yang digunakan.
 
 > Jangan masukkan client secret atau signing keystore ke source repository.
+
+## Axynera SDK
+
+Aplikasi direncanakan memakai SDK resmi dari `https://sdk.axynera.my.id`. Integrasi method SDK akan dipasang sesuai dokumentasi resmi agar tidak mengandalkan API yang ditebak. Sampai dokumentasi SDK dapat diakses, `src/api.js` tetap menjadi fallback REST ke endpoint resmi Axynera.
 
 ## Permission Android
 
