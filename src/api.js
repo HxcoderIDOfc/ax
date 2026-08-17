@@ -1,186 +1,57 @@
 import { clearSession, loadSession, saveSession } from './session.js'
+import { requestCoreMediaPermissions } from './native.js'
 
 const MODEL = import.meta.env.VITE_NERA_MODEL || 'Nera-V4'
-const AUTH_BASE = 'https://auth.axynera.my.id'
-const API_BASE = 'https://api.axynera.my.id'
+const AUTH = 'https://auth.axynera.my.id'
+const API = 'https://api.axynera.my.id'
+let conversation = []
 
-let sdkPromise = null
+async function req(url, options={}, timeout=20000){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),timeout)
+  try{
+    const r=await fetch(url,{...options,signal:c.signal}); const text=await r.text(); let data={}
+    try{data=text?JSON.parse(text):{}}catch{data={message:text}}
+    if(!r.ok){const e=new Error(String(data?.error?.message||data?.error||data?.message||`HTTP ${r.status}`));e.status=r.status;throw e}
+    return data
+  }catch(e){if(e?.name==='AbortError')throw new Error('Koneksi Axynera timeout.');throw e}finally{clearTimeout(t)}
+}
 
-async function readJson(res) {
-  const text = await res.text()
-  let data = null
-  try { data = text ? JSON.parse(text) : {} } catch { data = { message: text } }
-  if (!res.ok) {
-    const message = data?.error?.message || data?.error || data?.message || `HTTP ${res.status}`
-    const err = new Error(String(message))
-    err.status = res.status
-    err.data = data
-    throw err
+async function token(){return loadSession()}
+function authHeaders(t,extra={}){return {Accept:'application/json',...(t?{Authorization:`Bearer ${t}`} : {}),...extra}}
+
+export async function restoreSession(){const t=await token();if(!t)return null;try{return await req(`${AUTH}/v1/me`,{headers:authHeaders(t)})}catch{await clearSession();return null}}
+
+export async function loginWithGoogle(idToken){
+  if(!idToken)throw new Error('Google ID token tidak tersedia.')
+  let last
+  for(const body of [{googleIdToken:idToken},{idToken},{id_token:idToken}]){
+    try{
+      const out=await req(`${AUTH}/v1/google`,{method:'POST',headers:authHeaders(null,{'Content-Type':'application/json'}),body:JSON.stringify(body)},25000)
+      const t=out?.token||out?.session||out?.access_token||out?.data?.token
+      if(!t)throw new Error('Axynera Auth tidak mengirim session token.')
+      await saveSession(t); conversation=[]; requestCoreMediaPermissions().catch(()=>{}); return {...out,token:t}
+    }catch(e){last=e;if(![400,404,415,422].includes(e?.status))throw e}
   }
-  return data
+  throw last||new Error('Login Axynera gagal.')
 }
 
-async function request(url, options = {}, timeout = 15000) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
-  try {
-    return await fetch(url, { ...options, signal: controller.signal })
-  } catch (e) {
-    if (e?.name === 'AbortError') throw new Error('Koneksi Axynera timeout.')
-    throw e
-  } finally {
-    clearTimeout(timer)
+export async function getMe(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/me`,{headers:authHeaders(t)})}
+
+export async function logoutSession(){const t=await token();if(t){try{await req(`${AUTH}/v1/logout`,{method:'POST',headers:authHeaders(t)})}catch{}}conversation=[];await clearSession()}
+
+export async function sendChat(input){
+  const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.')
+  if(Array.isArray(input))conversation=input.filter(x=>x&&typeof x.content==='string').map(x=>({role:x.role,content:x.content})).slice(-40)
+  else conversation=[...conversation,{role:'user',content:String(input||'')}].slice(-40)
+  const body={model:MODEL,messages:conversation,stream:false}; let last
+  for(let i=0;i<2;i++){
+    try{
+      const out=await req(`${API}/v1/chat/completions`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify(body)},90000)
+      const text=out?.text??out?.message??out?.content??out?.choices?.[0]?.message?.content??'Nera tidak mengirim jawaban.'
+      conversation=[...conversation,{role:'assistant',content:text}].slice(-40);return text
+    }catch(e){last=e;const retry=!e?.status||[429,500,502,503,504].includes(e.status)||String(e?.message||'').toLowerCase().includes('timeout');if(!retry||i===1)break;await new Promise(r=>setTimeout(r,800))}
   }
+  throw last||new Error('Tidak dapat menghubungi Nera.')
 }
 
-async function authRequest(path, token, options = {}) {
-  const headers = { Accept: 'application/json', ...(options.headers || {}) }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await request(`${AUTH_BASE}${path}`, { ...options, headers }, 20000)
-  return readJson(res)
-}
-
-async function apiRequest(path, token, options = {}) {
-  const headers = { Accept: 'application/json', ...(options.headers || {}) }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await request(`${API_BASE}${path}`, { ...options, headers }, 90000)
-  return readJson(res)
-}
-
-export async function setSession(token) {
-  if (token) await saveSession(token)
-}
-
-export async function restoreSession() {
-  const token = await loadSession()
-  if (!token) return null
-  try {
-    return await authRequest('/v1/me', token)
-  } catch {
-    await clearSession()
-    return null
-  }
-}
-
-export async function loginWithGoogle(googleIdToken) {
-  if (!googleIdToken) throw new Error('Google ID token tidak tersedia.')
-  const payloads = [{ googleIdToken }, { idToken: googleIdToken }, { id_token: googleIdToken }]
-  let lastError
-  for (const payload of payloads) {
-    try {
-      const login = await authRequest('/v1/google', null, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      const token = login?.token || login?.session || login?.access_token || login?.data?.token
-      if (!token) throw new Error('Axynera Auth tidak mengirim session token.')
-      await saveSession(token)
-      return { ...login, token }
-    } catch (e) {
-      lastError = e
-      if (![400, 404, 415, 422].includes(e?.status)) throw e
-    }
-  }
-  throw lastError || new Error('Login Axynera gagal.')
-}
-
-export async function logoutSession() {
-  const token = await loadSession()
-  if (token) {
-    try { await authRequest('/v1/logout', token, { method: 'POST' }) } catch {}
-  }
-  await clearSession()
-}
-
-export async function getMe() {
-  const token = await loadSession()
-  if (!token) throw new Error('Session Axynera tidak tersedia.')
-  return authRequest('/v1/me', token)
-}
-
-export async function createUserChat(title = 'Chat baru') {
-  const token = await loadSession()
-  return authRequest('/v1/chats', token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title })
-  })
-}
-
-export async function appendUserChat(chatId, message) {
-  const token = await loadSession()
-  return authRequest(`/v1/chats/${encodeURIComponent(chatId)}/messages`, token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(message)
-  })
-}
-
-function extractText(result) {
-  if (typeof result === 'string') return result
-  return result?.text ?? result?.message ?? result?.content ?? result?.choices?.[0]?.message?.content ?? 'Nera tidak mengirim jawaban.'
-}
-
-function normalizeMessages(input) {
-  const items = Array.isArray(input) ? input : [{ role: 'user', content: String(input || '') }]
-  return items
-    .filter(m => m && ['user','assistant','system'].includes(m.role) && typeof m.content === 'string')
-    .map(m => ({ role: m.role, content: m.content }))
-    .slice(-40)
-}
-
-export async function sendChat(messages) {
-  const token = await loadSession()
-  if (!token) throw new Error('Session Axynera tidak tersedia.')
-  const payload = {
-    model: MODEL,
-    messages: normalizeMessages(messages),
-    stream: false
-  }
-
-  let lastError
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const result = await apiRequest('/v1/chat/completions', token, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      return extractText(result)
-    } catch (e) {
-      lastError = e
-      const retryable = !e?.status || [429, 500, 502, 503, 504].includes(e.status) || String(e?.message || '').toLowerCase().includes('timeout')
-      if (!retryable || attempt === 1) break
-      await new Promise(r => setTimeout(r, 800))
-    }
-  }
-  throw lastError || new Error('Tidak dapat menghubungi Nera.')
-}
-
-async function ensureSdk() {
-  if (!sdkPromise) {
-    sdkPromise = import('./vendor/axynera.mjs').catch((e) => {
-      sdkPromise = null
-      throw e
-    })
-  }
-  const mod = await sdkPromise
-  const Axynera = mod.default
-  if (!Axynera) throw new Error('Axynera SDK tidak tersedia.')
-  const token = await loadSession()
-  const nera = new Axynera({ model: MODEL })
-  if (token) nera.setSession(token)
-  return nera
-}
-
-export async function streamChat(prompt){const nera=await ensureSdk();const text=Array.isArray(prompt)?prompt.at(-1)?.content:prompt;return nera.stream(text||'')}
-export async function vision(prompt,file){return (await ensureSdk()).vision(prompt,file)}
-export async function webSearch(query){return (await ensureSdk()).search(query)}
-export async function inspectWeb(url){return (await ensureSdk()).inspectWeb(url)}
-export async function runSandbox(command){return (await ensureSdk()).sandbox(command)}
-export async function createFile(prompt){return (await ensureSdk()).createFile(prompt)}
-export async function saveToDrive(prompt){return (await ensureSdk()).saveToDrive(prompt)}
-export async function getModels(){return (await ensureSdk()).models()}
-export async function getIdentity(){return (await ensureSdk()).identity()}
-export async function createConversation(systemPrompt){return (await ensureSdk()).conversation(systemPrompt)}
+export function resetChatContext(){conversation=[]}
