@@ -41,7 +41,6 @@ export async function loginWithGoogle(idToken){
 export async function getMe(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/me`,{headers:authHeaders(t)})}
 export async function getCredits(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/credits`,{headers:authHeaders(t)})}
 export async function getStorage(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/storage`,{headers:authHeaders(t)})}
-
 export async function getChats(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{headers:authHeaders(t)})}
 export async function createChat(title='Chat baru'){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify({title})})}
 export async function getChat(id){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats/${encodeURIComponent(id)}`,{headers:authHeaders(t)})}
@@ -50,41 +49,45 @@ export async function deleteChat(id){const t=await token();if(!t)throw new Error
 
 export async function logoutSession(){const t=await token();if(t){try{await req(`${AUTH}/v1/logout`,{method:'POST',headers:authHeaders(t)})}catch{}}conversation=[];cancelChat();await clearSession()}
 
-export function cancelChat(){
-  if(activeChatController){activeChatController.abort();activeChatController=null;return true}
-  return false
-}
+export function cancelChat(){if(activeChatController){activeChatController.abort();activeChatController=null;return true}return false}
+function prepareConversation(input){if(Array.isArray(input))conversation=input.filter(x=>x&&typeof x.content==='string').map(x=>({role:x.role,content:x.content})).slice(-40);else conversation=[...conversation,{role:'user',content:String(input||'')}].slice(-40);return conversation}
 
-export async function sendChat(input,onStage){
+export async function streamChat(input,{onToken,onStage}={}){
   const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.')
-  if(Array.isArray(input))conversation=input.filter(x=>x&&typeof x.content==='string').map(x=>({role:x.role,content:x.content})).slice(-40)
-  else conversation=[...conversation,{role:'user',content:String(input||'')}].slice(-40)
-  const body={model:MODEL,messages:conversation,stream:false}; let last
-  activeChatController = new AbortController()
-  const timeout = setTimeout(()=>activeChatController?.abort(),90000)
+  prepareConversation(input)
+  activeChatController=new AbortController()
+  const timeout=setTimeout(()=>activeChatController?.abort(),120000)
+  let full=''
   try{
-    onStage?.('Menganalisis konteks percakapan')
-    await new Promise(r=>setTimeout(r,180))
-    onStage?.('Menghubungi Nera-V4')
-    for(let i=0;i<2;i++){
-      try{
-        const out=await req(`${API}/v1/chat/completions`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify(body),signal:activeChatController.signal},90000)
-        onStage?.('Menyusun jawaban')
-        const text=out?.text??out?.message??out?.content??out?.choices?.[0]?.message?.content??'Nera tidak mengirim jawaban.'
-        conversation=[...conversation,{role:'assistant',content:text}].slice(-40);return text
-      }catch(e){
-        if(String(e?.message)==='REQUEST_CANCELLED')throw e
-        last=e;const retry=!e?.status||[429,500,502,503,504].includes(e.status)||String(e?.message||'').toLowerCase().includes('timeout')
-        if(!retry||i===1)break
-        onStage?.('Mencoba ulang koneksi ke Nera')
-        await new Promise(r=>setTimeout(r,800))
+    onStage?.({id:'context',label:'Membaca pesan dan konteks',state:'active'})
+    await new Promise(r=>setTimeout(r,100))
+    onStage?.({id:'context',label:'Membaca pesan dan konteks',state:'done'})
+    onStage?.({id:'connect',label:'Menghubungi Nera-V4',state:'active'})
+    const response=await fetch(`${API}/v1/chat/completions`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json',Accept:'text/event-stream'}),body:JSON.stringify({model:MODEL,messages:conversation,stream:true}),signal:activeChatController.signal})
+    if(!response.ok){const text=await response.text();const e=new Error(text||`API ${response.status}`);e.status=response.status;throw e}
+    if(!response.body)throw new Error('Browser tidak mendukung SSE streaming.')
+    onStage?.({id:'connect',label:'Menghubungi Nera-V4',state:'done'})
+    onStage?.({id:'stream',label:'Menerima jawaban streaming',state:'active'})
+    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer=''
+    while(true){
+      const {value,done}=await reader.read();if(done)break
+      buffer+=decoder.decode(value,{stream:true})
+      let idx
+      while((idx=buffer.indexOf('\n\n'))>=0){
+        const block=buffer.slice(0,idx);buffer=buffer.slice(idx+2)
+        for(const line of block.split('\n')){
+          if(!line.startsWith('data:'))continue
+          const payload=line.slice(5).trim();if(!payload||payload==='[DONE]')continue
+          try{const data=JSON.parse(payload);const delta=data?.choices?.[0]?.delta?.content??data?.delta?.content??data?.text;if(typeof delta==='string'&&delta){full+=delta;onToken?.(delta,full)}}catch{}
+        }
       }
     }
-    throw last||new Error('Tidak dapat menghubungi Nera.')
-  }finally{
-    clearTimeout(timeout)
-    activeChatController=null
-  }
+    onStage?.({id:'stream',label:'Menerima jawaban streaming',state:'done'})
+    onStage?.({id:'final',label:'Menyelesaikan respons',state:'done'})
+    conversation=[...conversation,{role:'assistant',content:full}].slice(-40)
+    return full
+  }catch(e){if(e?.name==='AbortError')throw new Error('REQUEST_CANCELLED');throw e}finally{clearTimeout(timeout);activeChatController=null}
 }
 
+export async function sendChat(input,onStage){let latest='';return streamChat(input,{onToken:(_,full)=>{latest=full},onStage:(s)=>onStage?.(typeof s==='string'?s:s.label)}).then(x=>x||latest)}
 export function resetChatContext(){conversation=[]}
