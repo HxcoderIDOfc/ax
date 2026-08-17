@@ -80,22 +80,22 @@ export async function logoutSession(){const t=await token();if(t){try{await req(
 export function cancelChat(){if(activeChatController){activeChatController.abort();activeChatController=null;return true}return false}
 function prepareConversation(input){if(Array.isArray(input))conversation=input.filter(x=>x&&typeof x.content==='string').map(x=>({role:x.role,content:x.content})).slice(-40);else conversation=[...conversation,{role:'user',content:String(input||'')}].slice(-40);return conversation}
 
-export async function streamChat(input,{onToken,onStage}={}){
+export async function streamChat(input,{onToken,onStage,mode='cepat'}={}){
   const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.')
   prepareConversation(input)
   activeChatController=new AbortController()
   const timeout=setTimeout(()=>activeChatController?.abort(),120000)
   let full=''
+  const neraMode=String(mode||'cepat').toLowerCase()==='pintar'?'pintar':'cepat'
   try{
-    onStage?.({id:'context',label:'Membaca pesan dan konteks',state:'active'})
-    await new Promise(r=>setTimeout(r,100))
-    onStage?.({id:'context',label:'Membaca pesan dan konteks',state:'done'})
-    onStage?.({id:'connect',label:'Menghubungi Nera-V4',state:'active'})
-    const response=await fetch(`${API}/v1/chat/completions`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json',Accept:'text/event-stream'}),body:JSON.stringify({model:MODEL,messages:conversation,stream:true}),signal:activeChatController.signal})
+    const response=await fetch(`${API}/v1/chat/completions`,{
+      method:'POST',
+      headers:authHeaders(t,{'Content-Type':'application/json',Accept:'text/event-stream','x-nera-stream-events':'true'}),
+      body:JSON.stringify({model:MODEL,messages:conversation,stream:true,nera_events:true,nera_mode:neraMode}),
+      signal:activeChatController.signal
+    })
     if(!response.ok){const text=await response.text();const e=new Error(text||`API ${response.status}`);e.status=response.status;throw e}
     if(!response.body)throw new Error('Browser tidak mendukung SSE streaming.')
-    onStage?.({id:'connect',label:'Menghubungi Nera-V4',state:'done'})
-    onStage?.({id:'stream',label:'Menerima jawaban streaming',state:'active'})
     const reader=response.body.getReader(),decoder=new TextDecoder();let buffer=''
     while(true){
       const {value,done}=await reader.read();if(done)break
@@ -103,15 +103,34 @@ export async function streamChat(input,{onToken,onStage}={}){
       let idx
       while((idx=buffer.indexOf('\n\n'))>=0){
         const block=buffer.slice(0,idx);buffer=buffer.slice(idx+2)
+        let eventName='message',payload=''
         for(const line of block.split('\n')){
-          if(!line.startsWith('data:'))continue
-          const payload=line.slice(5).trim();if(!payload||payload==='[DONE]')continue
-          try{const data=JSON.parse(payload);const delta=data?.choices?.[0]?.delta?.content??data?.delta?.content??data?.text;if(typeof delta==='string'&&delta){full+=delta;onToken?.(delta,full)}}catch{}
+          if(line.startsWith('event:'))eventName=line.slice(6).trim()
+          else if(line.startsWith('data:'))payload+=(payload?'\n':'')+line.slice(5).trim()
         }
+        if(!payload||payload==='[DONE]')continue
+        let data={};try{data=JSON.parse(payload)}catch{data={text:payload}}
+        if(eventName==='thinking'){
+          onStage?.({id:`thinking-${data.tool||'core'}`,label:data.status||'Berpikir',state:'active',kind:'thinking',tool:data.tool||null})
+          continue
+        }
+        if(eventName==='status'){
+          onStage?.({id:`status-${data.phase||'content'}`,label:data.status||'Menulis jawaban',state:'active',kind:'status',phase:data.phase||null})
+          continue
+        }
+        if(eventName==='content'){
+          const delta=data?.delta??data?.text??''
+          if(typeof delta==='string'&&delta){full+=delta;onToken?.(delta,full);onStage?.({id:'content',label:'Menulis jawaban',state:'active',kind:'content'})}
+          continue
+        }
+        if(eventName==='done'){
+          onStage?.({id:'done',label:data.status||'Selesai',state:'done',kind:'done'})
+          continue
+        }
+        const delta=data?.choices?.[0]?.delta?.content??data?.delta?.content??data?.delta??data?.text
+        if(typeof delta==='string'&&delta){full+=delta;onToken?.(delta,full)}
       }
     }
-    onStage?.({id:'stream',label:'Menerima jawaban streaming',state:'done'})
-    onStage?.({id:'final',label:'Menyelesaikan respons',state:'done'})
     conversation=[...conversation,{role:'assistant',content:full}].slice(-40)
     return full
   }catch(e){if(e?.name==='AbortError')throw new Error('REQUEST_CANCELLED');throw e}finally{clearTimeout(timeout);activeChatController=null}
