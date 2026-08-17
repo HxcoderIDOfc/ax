@@ -46,24 +46,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Fetch Axynera SDK v0.4.2
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p src/vendor
-          UA='Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/138 Mobile Safari/537.36'
-          fetch_sdk() {
-            curl -fL --retry 2 --retry-all-errors \
-              -A "$UA" \
-              -H 'Accept: text/javascript, application/javascript, */*;q=0.8' \
-              -H 'Referer: https://sdk.axynera.my.id/' \
-              "$1" -o src/vendor/axynera.mjs
-          }
-          fetch_sdk 'https://sdk.axynera.my.id/v/0.4.2/axynera.mjs' || \
-          fetch_sdk "https://sdk.axynera.my.id/axynera.mjs?build=${GITHUB_RUN_ID}"
-          test -s src/vendor/axynera.mjs
-          node --check src/vendor/axynera.mjs
-          echo "Axynera SDK syntax OK: $(wc -c < src/vendor/axynera.mjs) bytes"
+      - name: Validate local SDK loader
+        run: node --check src/vendor/axynera.mjs
 
       - name: Fix Google login options for Android
         shell: python
