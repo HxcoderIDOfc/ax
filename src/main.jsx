@@ -1,6 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App.jsx'
+import AppV2 from './AppV2.jsx'
 import './styles.css'
 import { configureNativeUi } from './native.js'
 
@@ -8,6 +8,6 @@ configureNativeUi()
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <AppV2 />
   </React.StrictMode>
 )
