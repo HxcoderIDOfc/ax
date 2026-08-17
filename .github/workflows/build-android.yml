@@ -1,22 +1,17 @@
 name: Build Nera AI APK
 
-on:
+"on":
   workflow_dispatch:
-    inputs:
-      build_name:
-        description: Optional build label
-        required: false
-        default: manual
 
 permissions:
   contents: read
 
 jobs:
-  build-apk:
+  build:
+    name: Build signed APK
     runs-on: ubuntu-24.04
     env:
       VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
-      VITE_NERA_API_URL: https://api.axynera.my.id/v1/chat/completions
       VITE_NERA_MODEL: Nera-V4
       NERA_KEYSTORE_BASE64: ${{ secrets.NERA_KEYSTORE_BASE64 }}
       NERA_KEYSTORE_PASSWORD: ${{ secrets.NERA_KEYSTORE_PASSWORD }}
@@ -27,26 +22,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node.js
+      - name: Setup Node 24
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: "24"
 
-      - name: Use preinstalled Java 21
+      - name: Select Java 21
+        shell: bash
         run: |
-          test -n "$JAVA_HOME_21_X64"
           echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
           echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
           "$JAVA_HOME_21_X64/bin/java" -version
-          "$JAVA_HOME_21_X64/bin/javac" -version
 
-      - name: Verify required secrets
+      - name: Verify secrets
+        shell: bash
         run: |
-          test -n "$VITE_GOOGLE_WEB_CLIENT_ID" || (echo "::error::VITE_GOOGLE_WEB_CLIENT_ID belum diisi" && exit 1)
-          test -n "$NERA_KEYSTORE_BASE64" || (echo "::error::NERA_KEYSTORE_BASE64 belum diisi" && exit 1)
-          test -n "$NERA_KEYSTORE_PASSWORD" || (echo "::error::NERA_KEYSTORE_PASSWORD belum diisi" && exit 1)
-          test -n "$NERA_KEY_ALIAS" || (echo "::error::NERA_KEY_ALIAS belum diisi" && exit 1)
-          test -n "$NERA_KEY_PASSWORD" || (echo "::error::NERA_KEY_PASSWORD belum diisi" && exit 1)
+          test -n "$VITE_GOOGLE_WEB_CLIENT_ID"
+          test -n "$NERA_KEYSTORE_BASE64"
+          test -n "$NERA_KEYSTORE_PASSWORD"
+          test -n "$NERA_KEY_ALIAS"
+          test -n "$NERA_KEY_PASSWORD"
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -54,103 +49,78 @@ jobs:
       - name: Build web app
         run: npm run build
 
-      - name: Generate Android project
+      - name: Create Android project
         run: npx cap add android
 
-      - name: Sync Capacitor
+      - name: Sync Android
         run: npx cap sync android
 
-      - name: Restore permanent signing key
+      - name: Restore release keystore
+        shell: bash
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/android/keystore"
-          echo "$NERA_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/android/keystore/nera-release.jks"
-          keytool -list -keystore "$GITHUB_WORKSPACE/android/keystore/nera-release.jks" -storepass "$NERA_KEYSTORE_PASSWORD" -alias "$NERA_KEY_ALIAS" >/dev/null
-          echo "Permanent Nera AI signing key loaded successfully."
+          mkdir -p android/keystore
+          printf '%s' "$NERA_KEYSTORE_BASE64" | base64 --decode > android/keystore/nera-release.jks
+          keytool -list -keystore android/keystore/nera-release.jks -storepass "$NERA_KEYSTORE_PASSWORD" -alias "$NERA_KEY_ALIAS" >/dev/null
 
-      - name: Configure Android app and release signing
+      - name: Configure Android release
         shell: python
         env:
           VERSION_CODE: ${{ github.run_number }}
         run: |
           from pathlib import Path
-          import re, os
+          import os, re
 
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
           text = manifest.read_text()
-          marker = '<application'
-          block = '''
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.RECORD_AUDIO" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-              <uses-feature android:name="android.hardware.camera" android:required="false" />
-              <uses-feature android:name="android.hardware.microphone" android:required="false" />
+          if "android.permission.RECORD_AUDIO" not in text:
+              additions = """    <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
+              <uses-permission android:name=\"android.permission.CAMERA\" />
+              <uses-permission android:name=\"android.permission.RECORD_AUDIO\" />
+              <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
+              <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />
+              <uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\" />
+              <uses-permission android:name=\"android.permission.READ_MEDIA_AUDIO\" />
+              <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" />
+          """
+              text = text.replace("<application", additions + "\n    <application", 1)
+              manifest.write_text(text)
 
-              <queries>
-                  <intent>
-                      <action android:name="android.intent.action.VIEW" />
-                      <category android:name="android.intent.category.BROWSABLE" />
-                      <data android:scheme="https" />
-                  </intent>
-                  <intent>
-                      <action android:name="android.intent.action.SEND" />
-                      <data android:mimeType="*/*" />
-                  </intent>
-                  <intent>
-                      <action android:name="android.intent.action.GET_CONTENT" />
-                      <category android:name="android.intent.category.OPENABLE" />
-                      <data android:mimeType="*/*" />
-                  </intent>
-              </queries>
-          '''
-          if 'android.permission.RECORD_AUDIO' not in text:
-              text = text.replace(marker, block + '\n    ' + marker, 1)
-          manifest.write_text(text)
-
-          gradle = Path('android/app/build.gradle')
+          gradle = Path("android/app/build.gradle")
           g = gradle.read_text()
-          vc = os.environ['VERSION_CODE']
-          g = re.sub(r'versionCode\s+\d+', f'versionCode {vc}', g)
-          g = re.sub(r'versionName\s+"[^"]+"', f'versionName "0.1.{vc}"', g)
+          code = os.environ["VERSION_CODE"]
+          g = re.sub(r"versionCode\s+\d+", f"versionCode {code}", g)
+          g = re.sub(r"versionName\s+\"[^\"]+\"", f"versionName \"0.1.{code}\"", g)
 
-          signing = '''
-    signingConfigs {
-        neraRelease {
-            storeFile file("../keystore/nera-release.jks")
-            storePassword System.getenv("NERA_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("NERA_KEY_ALIAS")
-            keyPassword System.getenv("NERA_KEY_PASSWORD")
-        }
-    }
-'''
-          if 'signingConfigs {' not in g:
-              g = g.replace('    buildTypes {', signing + '\n    buildTypes {', 1)
-
-          g = g.replace('release {\n', 'release {\n            signingConfig signingConfigs.neraRelease\n', 1)
+          signing = """    signingConfigs {
+              neraRelease {
+                  storeFile file(\"../keystore/nera-release.jks\")
+                  storePassword System.getenv(\"NERA_KEYSTORE_PASSWORD\")
+                  keyAlias System.getenv(\"NERA_KEY_ALIAS\")
+                  keyPassword System.getenv(\"NERA_KEY_PASSWORD\")
+              }
+          }
+          """
+          if "neraRelease" not in g:
+              g = g.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
+          g = g.replace("release {\n", "release {\n            signingConfig signingConfigs.neraRelease\n", 1)
           gradle.write_text(g)
 
-      - name: Show permanent signing certificate
+      - name: Show release SHA
+        shell: bash
         run: |
-          keytool -list -v \
-            -keystore "$GITHUB_WORKSPACE/android/keystore/nera-release.jks" \
-            -storepass "$NERA_KEYSTORE_PASSWORD" \
-            -alias "$NERA_KEY_ALIAS" | grep -E 'SHA1:|SHA256:'
+          keytool -list -v -keystore android/keystore/nera-release.jks -storepass "$NERA_KEYSTORE_PASSWORD" -alias "$NERA_KEY_ALIAS" | grep -E 'SHA1:|SHA256:'
 
-      - name: Build signed release APK
+      - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Rename APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk Nera-AI-v0.1.${{ github.run_number }}.apk
+      - name: Prepare APK artifact
+        shell: bash
+        run: cp android/app/build/outputs/apk/release/app-release.apk "Nera-AI-v0.1.${{ github.run_number }}.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: Nera-AI-APK-v0.1.${{ github.run_number }}
+          name: Nera-AI-v0.1.${{ github.run_number }}
           path: Nera-AI-v0.1.${{ github.run_number }}.apk
-          if-no-files-found: error
           retention-days: 14
