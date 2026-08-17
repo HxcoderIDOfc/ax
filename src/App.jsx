@@ -35,17 +35,29 @@ export default function App(){
   useEffect(()=>{(async()=>{try{const me=await restoreSession();if(me)setUser(normalizeUser(me))}finally{setBooting(false)}})()},[])
 
   async function loginGoogle(){
-    setError(''); if(!googleClientId){setError('Google Client ID belum dikonfigurasi di GitHub Actions.');return}
+    setError('')
+    if(!googleClientId){setError('Google Client ID belum dikonfigurasi di GitHub Actions.');return}
     try{
       setAuthBusy(true)
       await SocialLogin.initialize({google:{webClientId:googleClientId,mode:'online'}})
-      const login=await SocialLogin.login({provider:'google',options:{scopes:['email','profile'],filterByAuthorizedAccounts:false}})
+      const login=await SocialLogin.login({
+        provider:'google',
+        options:{
+          filterByAuthorizedAccounts:false,
+          style:'standard'
+        }
+      })
       const r=login?.result||{}
-      const googleIdToken=r?.idToken||r?.accessToken?.token||r?.authentication?.idToken
+      const googleIdToken=r?.idToken||r?.authentication?.idToken
       if(!googleIdToken)throw new Error('Google Sign-In tidak mengirim ID token.')
       await loginWithGoogle(googleIdToken)
       setUser(normalizeUser(await getMe()))
-    }catch(e){setError(e?.message||'Login Google gagal.')}finally{setAuthBusy(false)}
+    }catch(e){
+      const message=String(e?.message||e||'Login Google gagal.')
+      if(message.includes('[16]')||message.toLowerCase().includes('reauth')){
+        setError('Google gagal mengautentikasi ulang akun. Pastikan akun ini diizinkan pada OAuth Axynera dan coba pilih akun Google lagi.')
+      }else setError(message)
+    }finally{setAuthBusy(false)}
   }
 
   async function logout(){try{await SocialLogin.logout({provider:'google'})}catch{}await logoutSession();setUser(null);setMessages([]);setPage('home')}
