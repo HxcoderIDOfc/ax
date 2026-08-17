@@ -85,7 +85,7 @@ export async function streamChat(input,{onToken,onStage,mode='cepat'}={}){
   prepareConversation(input)
   activeChatController=new AbortController()
   const timeout=setTimeout(()=>activeChatController?.abort(),120000)
-  let full=''
+  let full='',eventSeq=0
   const neraMode=String(mode||'cepat').toLowerCase()==='pintar'?'pintar':'cepat'
   try{
     const response=await fetch(`${API}/v1/chat/completions`,{
@@ -111,11 +111,11 @@ export async function streamChat(input,{onToken,onStage,mode='cepat'}={}){
         if(!payload||payload==='[DONE]')continue
         let data={};try{data=JSON.parse(payload)}catch{data={text:payload}}
         if(eventName==='thinking'){
-          onStage?.({id:`thinking-${data.tool||'core'}`,label:data.status||'Berpikir',state:'active',kind:'thinking',tool:data.tool||null})
+          onStage?.({id:`activity-${++eventSeq}`,label:data.status||'Berpikir',state:'active',kind:'thinking',tool:data.tool||null,command:data.command||null,success:data.success,activity:Boolean(data.activity),mode:data.mode||neraMode})
           continue
         }
         if(eventName==='status'){
-          onStage?.({id:`status-${data.phase||'content'}`,label:data.status||'Menulis jawaban',state:'active',kind:'status',phase:data.phase||null})
+          onStage?.({id:`status-${++eventSeq}`,label:data.status||'Menulis jawaban',state:'active',kind:'status',phase:data.phase||null,tool:data.tool||null,activity:Boolean(data.activity)})
           continue
         }
         if(eventName==='content'){
@@ -124,11 +124,11 @@ export async function streamChat(input,{onToken,onStage,mode='cepat'}={}){
           continue
         }
         if(eventName==='done'){
-          onStage?.({id:'done',label:data.status||'Selesai',state:'done',kind:'done'})
+          onStage?.({id:`done-${++eventSeq}`,label:data.status||'Selesai',state:'done',kind:'done'})
           continue
         }
         const delta=data?.choices?.[0]?.delta?.content??data?.delta?.content??data?.delta??data?.text
-        if(typeof delta==='string'&&delta){full+=delta;onToken?.(delta,full)}
+        if(typeof delta==='string'&&delta){full+=delta;onToken?.(delta,full);onStage?.({id:'content',label:'Menulis jawaban',state:'active',kind:'content'})}
       }
     }
     conversation=[...conversation,{role:'assistant',content:full}].slice(-40)
