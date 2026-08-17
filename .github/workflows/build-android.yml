@@ -46,16 +46,16 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Fetch latest Axynera SDK
+      - name: Fetch Axynera SDK v0.4.2
         shell: bash
         run: |
           mkdir -p src/vendor
           curl -fSL --retry 3 --retry-all-errors \
-            "https://sdk.axynera.my.id/axynera.mjs?build=${GITHUB_RUN_ID}" \
+            "https://sdk.axynera.my.id/v/0.4.2/axynera.mjs" \
             -o src/vendor/axynera.mjs
           test -s src/vendor/axynera.mjs
           node --check src/vendor/axynera.mjs
-          echo "Axynera SDK bundled locally: $(wc -c < src/vendor/axynera.mjs) bytes"
+          echo "Axynera SDK v0.4.2 bundled locally: $(wc -c < src/vendor/axynera.mjs) bytes"
 
       - name: Fix Google login options for Android
         shell: python
