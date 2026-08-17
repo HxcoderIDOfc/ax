@@ -97,7 +97,8 @@ export async function deleteChat(id){const t=await token();if(!t)throw new Error
 
 export async function logoutSession(){const t=await token();if(t){try{await req(`${AUTH}/v1/logout`,{method:'POST',headers:authHeaders(t)})}catch{}}conversation=[];cancelChat();await clearSession()}
 export function cancelChat(){if(activeChatController){activeChatController.abort();activeChatController=null;return true}return false}
-function prepareConversation(input){if(Array.isArray(input))conversation=input.filter(x=>x&&typeof x.content==='string').map(x=>({role:x.role,content:x.content})).slice(-40);else conversation=[...conversation,{role:'user',content:String(input||'')}].slice(-40);return conversation}
+function validContent(content){return typeof content==='string'||Array.isArray(content)}
+function prepareConversation(input){if(Array.isArray(input))conversation=input.filter(x=>x&&validContent(x.content)).map(x=>({role:x.role,content:x.content})).slice(-40);else conversation=[...conversation,{role:'user',content:String(input||'')}].slice(-40);return conversation}
 
 async function nativeFallback(messages,t,neraMode,onStage,onToken){
   if(!Capacitor.isNativePlatform())throw new Error('Native fallback tidak tersedia.')
