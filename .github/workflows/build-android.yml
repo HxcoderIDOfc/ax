@@ -18,6 +18,7 @@ jobs:
       VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
       VITE_NERA_API_URL: https://api.axynera.my.id/v1/chat/completions
       VITE_NERA_MODEL: Nera-V4
+      NERA_KEYSTORE_BASE64: ${{ secrets.NERA_KEYSTORE_BASE64 }}
 
     steps:
       - name: Checkout
@@ -28,11 +29,13 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Use preinstalled Java
+      - name: Use preinstalled Java 21
         run: |
-          java -version
-          javac -version
-          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          test -n "$JAVA_HOME_21_X64"
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+          "$JAVA_HOME_21_X64/bin/java" -version
+          "$JAVA_HOME_21_X64/bin/javac" -version
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -46,12 +49,16 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Add Android permissions and app intent queries
+      - name: Configure Android app
         shell: python
+        env:
+          VERSION_CODE: ${{ github.run_number }}
         run: |
           from pathlib import Path
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          text = p.read_text()
+          import re, os
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
           marker = '<application'
           block = '''
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -84,22 +91,35 @@ jobs:
           '''
           if 'android.permission.RECORD_AUDIO' not in text:
               text = text.replace(marker, block + '\n    ' + marker, 1)
-          p.write_text(text)
+          manifest.write_text(text)
 
-      - name: Generate stable debug keystore
+          gradle = Path('android/app/build.gradle')
+          g = gradle.read_text()
+          vc = os.environ['VERSION_CODE']
+          g = re.sub(r'versionCode\s+\d+', f'versionCode {vc}', g)
+          g = re.sub(r'versionName\s+"[^"]+"', f'versionName "0.1.{vc}"', g)
+          gradle.write_text(g)
+
+      - name: Prepare signing key
         run: |
           mkdir -p "$HOME/.config/.android"
-          keytool -genkeypair -v \
-            -keystore "$HOME/.config/.android/debug.keystore" \
-            -storepass android \
-            -alias AndroidDebugKey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "$NERA_KEYSTORE_BASE64" ]; then
+            echo "$NERA_KEYSTORE_BASE64" | base64 --decode > "$HOME/.config/.android/debug.keystore"
+            echo "Using persistent Nera AI signing key from GitHub Secret."
+          else
+            echo "::warning::NERA_KEYSTORE_BASE64 belum ada. APK ini bisa dibuild, tetapi update lintas-build belum dijamin sampai signing key permanen dipasang."
+            keytool -genkeypair -v \
+              -keystore "$HOME/.config/.android/debug.keystore" \
+              -storepass android \
+              -alias AndroidDebugKey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Nera AI,O=Axynera,C=ID"
+          fi
 
-      - name: Show debug signing SHA-1
+      - name: Show signing SHA-1
         working-directory: android
         run: ./gradlew signingReport --no-daemon
 
@@ -108,12 +128,12 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Nera-AI-debug.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Nera-AI-v0.1.${{ github.run_number }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: Nera-AI-APK
-          path: Nera-AI-debug.apk
+          name: Nera-AI-APK-v0.1.${{ github.run_number }}
+          path: Nera-AI-v0.1.${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 14
