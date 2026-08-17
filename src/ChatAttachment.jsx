@@ -1,4 +1,4 @@
-import{useRef,useState}from'react';import{File,Image as ImageIcon,Paperclip,X}from'lucide-react';
+import{useRef,useState}from'react';import{File,Image as ImageIcon,Paperclip,X}from'lucide-react';import'./chat-attachment.css';
 const TEXT_EXT=/\.(txt|md|json|js|jsx|ts|tsx|html|css|xml|csv|log|py|go|java|c|cpp|h|rs|sh|yml|yaml)$/i;
 function readDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=reject;r.readAsDataURL(file)})}
 function readText(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=reject;r.readAsText(file)})}
