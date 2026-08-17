@@ -42,6 +42,12 @@ export async function getMe(){const t=await token();if(!t)throw new Error('Sessi
 export async function getCredits(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/credits`,{headers:authHeaders(t)})}
 export async function getStorage(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/storage`,{headers:authHeaders(t)})}
 
+export async function getChats(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{headers:authHeaders(t)})}
+export async function createChat(title='Chat baru'){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify({title})})}
+export async function getChat(id){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats/${encodeURIComponent(id)}`,{headers:authHeaders(t)})}
+export async function appendChat(id,message,title){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats/${encodeURIComponent(id)}`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify({message,title})})}
+export async function deleteChat(id){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats/${encodeURIComponent(id)}`,{method:'DELETE',headers:authHeaders(t)})}
+
 export async function logoutSession(){const t=await token();if(t){try{await req(`${AUTH}/v1/logout`,{method:'POST',headers:authHeaders(t)})}catch{}}conversation=[];cancelChat();await clearSession()}
 
 export function cancelChat(){
