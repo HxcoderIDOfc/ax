@@ -87,16 +87,6 @@ jobs:
               s = re.sub(r'<style\s+name="AppTheme[^\"]*"[\s\S]*?</style>', patch_style, s)
               p.write_text(s)
 
-          mains = list(Path("android/app/src/main/java").rglob("MainActivity.java"))
-          for p in mains:
-              s = p.read_text()
-              if 'applySystemBars' in s:
-                  continue
-              s = s.replace('import com.getcapacitor.BridgeActivity;', 'import com.getcapacitor.BridgeActivity;\nimport android.os.Bundle;\nimport android.graphics.Color;\nimport android.view.View;')
-              body = '''\n    private void applySystemBars() {\n        getWindow().setStatusBarColor(Color.WHITE);\n        getWindow().setNavigationBarColor(Color.rgb(9, 13, 22));\n        int flags = getWindow().getDecorView().getSystemUiVisibility();\n        flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;\n        if (android.os.Build.VERSION.SDK_INT >= 26) flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;\n        getWindow().getDecorView().setSystemUiVisibility(flags);\n    }\n\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        applySystemBars();\n    }\n\n    @Override\n    protected void onResume() {\n        super.onResume();\n        applySystemBars();\n    }\n'''
-              s = re.sub(r'(public class MainActivity extends BridgeActivity\s*\{)', r'\1' + body, s, count=1)
-              p.write_text(s)
-
       - name: Restore release keystore
         shell: bash
         run: |
@@ -154,7 +144,7 @@ jobs:
 
       - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Prepare APK artifact
         shell: bash
