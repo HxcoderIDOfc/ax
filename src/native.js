@@ -5,8 +5,8 @@ async function applyStatusBar(){
   if (!Capacitor.isNativePlatform()) return
   try {
     await StatusBar.setOverlaysWebView({ overlay: false })
-    await StatusBar.setBackgroundColor({ color: '#090d16' })
-    await StatusBar.setStyle({ style: Style.Light })
+    await StatusBar.setBackgroundColor({ color: '#ffffff' })
+    await StatusBar.setStyle({ style: Style.Dark })
   } catch {}
 }
 
