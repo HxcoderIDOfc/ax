@@ -90,7 +90,7 @@ export async function streamChat(input,{onToken,onStage,mode='cepat'}={}){
   try{
     const response=await fetch(`${API}/v1/chat/completions`,{
       method:'POST',
-      headers:authHeaders(t,{'Content-Type':'application/json',Accept:'text/event-stream','x-nera-stream-events':'true'}),
+      headers:authHeaders(t,{'Content-Type':'application/json',Accept:'text/event-stream'}),
       body:JSON.stringify({model:MODEL,messages:conversation,stream:true,nera_events:true,nera_mode:neraMode}),
       signal:activeChatController.signal
     })
