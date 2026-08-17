@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
       VITE_NERA_API_URL: https://api.axynera.my.id/v1/chat/completions
@@ -28,11 +28,11 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
+      - name: Use preinstalled Java
+        run: |
+          java -version
+          javac -version
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
