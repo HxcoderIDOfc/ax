@@ -39,6 +39,8 @@ export async function loginWithGoogle(idToken){
 }
 
 export async function getMe(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/me`,{headers:authHeaders(t)})}
+export async function getProfile(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/profile`,{headers:authHeaders(t)})}
+export async function updateProfile({name,avatar}={}){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');const body={};if(name!==undefined)body.name=name;if(avatar!==undefined)body.avatar=avatar;return req(`${AUTH}/v1/profile`,{method:'PATCH',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify(body)},25000)}
 export async function getCredits(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/credits`,{headers:authHeaders(t)})}
 export async function getStorage(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/storage`,{headers:authHeaders(t)})}
 export async function getChats(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{headers:authHeaders(t)})}
