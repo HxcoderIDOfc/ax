@@ -1,8 +1,0 @@
-{
-  "appId": "id.axynera.neraai",
-  "appName": "Nera AI",
-  "webDir": "dist",
-  "server": {
-    "androidScheme": "https"
-  }
-}
