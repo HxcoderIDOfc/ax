@@ -1,0 +1,8 @@
+{
+  "appId": "id.axynera.neraai",
+  "appName": "Nera AI",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}
