@@ -27,7 +27,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-          package-manager-cache: false
 
       - name: Setup Java
         uses: actions/setup-java@v5
