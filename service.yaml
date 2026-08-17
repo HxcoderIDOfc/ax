@@ -1,0 +1,27 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: axynera-vision
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "2"
+        run.googleapis.com/cpu-throttling: "true"
+    spec:
+      containerConcurrency: 2
+      timeoutSeconds: 60
+      containers:
+        - image: IMAGE_URL
+          resources:
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          env:
+            - name: VISION_MODEL
+              value: yolo11n.pt
+            - name: VISION_CONF
+              value: "0.25"
+            - name: MAX_IMAGE_BYTES
+              value: "10485760"
