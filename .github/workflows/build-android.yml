@@ -47,13 +47,14 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Add Android permissions
+      - name: Add Android permissions and app intent queries
         shell: python
         run: |
           from pathlib import Path
           p = Path('android/app/src/main/AndroidManifest.xml')
           text = p.read_text()
-          permissions = '''
+          marker = '<application'
+          block = '''
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.CAMERA" />
@@ -62,9 +63,34 @@ jobs:
               <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-feature android:name="android.hardware.camera" android:required="false" />
+              <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.VIEW" />
+                      <category android:name="android.intent.category.BROWSABLE" />
+                      <data android:scheme="https" />
+                  </intent>
+                  <intent>
+                      <action android:name="android.intent.action.SEND" />
+                      <data android:mimeType="*/*" />
+                  </intent>
+                  <intent>
+                      <action android:name="android.intent.action.GET_CONTENT" />
+                      <category android:name="android.intent.category.OPENABLE" />
+                      <data android:mimeType="*/*" />
+                  </intent>
+              </queries>
           '''
-          text = text.replace('<application', permissions + '\n    <application', 1)
+          if 'android.permission.RECORD_AUDIO' not in text:
+              text = text.replace(marker, block + '\n    ' + marker, 1)
           p.write_text(text)
+
+      - name: Show debug signing SHA-1
+        working-directory: android
+        run: ./gradlew signingReport --no-daemon
 
       - name: Build debug APK
         working-directory: android
@@ -74,7 +100,7 @@ jobs:
         run: cp android/app/build/outputs/apk/debug/app-debug.apk Nera-AI-debug.apk
 
       - name: Upload APK
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: Nera-AI-APK
           path: Nera-AI-debug.apk
