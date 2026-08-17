@@ -16,14 +16,30 @@ export async function configureNativeUi() {
   window.addEventListener('focus',applyStatusBar)
 
   const vv=window.visualViewport
+  let baseline=Math.max(window.innerHeight,vv?.height||0)
+  let inputFocused=false
+  let blurTimer
+  const setKeyboard=open=>document.documentElement.classList.toggle('keyboard-open',!!open)
   const syncKeyboard=()=>{
-    const h=vv?.height||window.innerHeight
-    const full=window.innerHeight
-    document.documentElement.classList.toggle('keyboard-open',full-h>140)
+    const current=Math.min(window.innerHeight,vv?.height||window.innerHeight)
+    baseline=Math.max(baseline,window.innerHeight,vv?.height||0)
+    const shrunk=baseline-current>120
+    setKeyboard(inputFocused||shrunk)
   }
+  document.addEventListener('focusin',e=>{
+    if(e.target?.matches?.('textarea,input,[contenteditable="true"]')){
+      clearTimeout(blurTimer);inputFocused=true;setKeyboard(true);setTimeout(syncKeyboard,60)
+    }
+  })
+  document.addEventListener('focusout',e=>{
+    if(e.target?.matches?.('textarea,input,[contenteditable="true"]')){
+      inputFocused=false;clearTimeout(blurTimer);blurTimer=setTimeout(syncKeyboard,180)
+    }
+  })
   vv?.addEventListener('resize',syncKeyboard)
   vv?.addEventListener('scroll',syncKeyboard)
   window.addEventListener('resize',syncKeyboard)
+  window.addEventListener('orientationchange',()=>{baseline=0;setTimeout(()=>{baseline=Math.max(window.innerHeight,vv?.height||0);syncKeyboard()},350)})
   syncKeyboard()
 }
 
