@@ -39,10 +39,36 @@ export async function loginWithGoogle(idToken){
 }
 
 export async function getMe(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/me`,{headers:authHeaders(t)})}
-export async function getProfile(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/profile`,{headers:authHeaders(t)})}
-export async function updateProfile({name,avatar}={}){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');const body={};if(name!==undefined)body.name=name;if(avatar!==undefined)body.avatar=avatar;return req(`${AUTH}/v1/profile`,{method:'PATCH',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify(body)},25000)}
-export async function getCredits(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/credits`,{headers:authHeaders(t)})}
+
+function numberOrZero(v){const n=Number(v);return Number.isFinite(n)?n:0}
+function limitFromMe(raw={}){
+  const u=raw?.user||raw?.data?.user||raw?.data||raw
+  const usage=u?.usage||{}
+  const limits=u?.limits||{}
+  const sub=u?.subscription||{}
+  const unlimited=Boolean(sub?.unlimited||u?.unlimited||String(u?.limit_label||'').toLowerCase()==='unlimited')
+  const used=numberOrZero(usage.input_tokens)+numberOrZero(usage.output_tokens)
+  const inLimit=limits.input_tokens, outLimit=limits.output_tokens
+  const hasFiniteLimits=inLimit!=null&&outLimit!=null&&Number.isFinite(Number(inLimit))&&Number.isFinite(Number(outLimit))
+  const limit=unlimited?Infinity:(hasFiniteLimits?numberOrZero(inLimit)+numberOrZero(outLimit):0)
+  return {used,limit,unlimited,usage,limits,remaining:u?.remaining||{},subscription:sub,limit_label:unlimited?'Unlimited':u?.limit_label}
+}
+
+export async function getCredits(){
+  const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.')
+  const [meResult,creditResult]=await Promise.allSettled([
+    req(`${AUTH}/v1/me`,{headers:authHeaders(t)}),
+    req(`${AUTH}/v1/credits`,{headers:authHeaders(t)})
+  ])
+  if(meResult.status!=='fulfilled'&&creditResult.status!=='fulfilled')throw meResult.reason||creditResult.reason
+  const live=meResult.status==='fulfilled'?limitFromMe(meResult.value):{}
+  const c=creditResult.status==='fulfilled'?(creditResult.value?.credits||creditResult.value?.data||creditResult.value):{}
+  return {credits:{...c,...live,balance:c?.balance??c?.credits??c?.credit_balance??c?.available??0,unit:c?.unit||c?.currency||'credit'}}
+}
+
 export async function getStorage(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/storage`,{headers:authHeaders(t)})}
+export async function getProfile(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/profile`,{headers:authHeaders(t)})}
+export async function updateProfile({name,avatar}={}){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');const body={};if(name!==undefined)body.name=String(name).trim();if(avatar!==undefined)body.avatar=String(avatar).trim();return req(`${AUTH}/v1/profile`,{method:'PATCH',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify(body)},25000)}
 export async function getChats(){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{headers:authHeaders(t)})}
 export async function createChat(title='Chat baru'){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats`,{method:'POST',headers:authHeaders(t,{'Content-Type':'application/json'}),body:JSON.stringify({title})})}
 export async function getChat(id){const t=await token();if(!t)throw new Error('Session Axynera tidak tersedia.');return req(`${AUTH}/v1/chats/${encodeURIComponent(id)}`,{headers:authHeaders(t)})}
