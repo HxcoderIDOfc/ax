@@ -8,6 +8,7 @@ Nera AI adalah aplikasi chat AI Android berbasis React, Vite, dan Capacitor.
 - Android package: `com.axynera.neraai`
 - API: `https://api.axynera.my.id/v1/chat/completions`
 - SDK docs: `https://sdk.axynera.my.id`
+- SDK runtime pinned: `https://sdk.axynera.my.id/v/0.3.0/axynera.mjs`
 - Model default: `Nera-V4`
 
 ## Build APK manual di GitHub
@@ -21,7 +22,7 @@ Workflow hanya memakai `workflow_dispatch`, jadi build tidak berjalan otomatis s
 
 ## Login Google
 
-Source sudah memakai `@capgo/capacitor-social-login` untuk Google Sign-In.
+Source memakai `@capgo/capacitor-social-login` untuk Google Sign-In.
 
 Tambahkan repository secret:
 
@@ -31,9 +32,27 @@ Isi dengan OAuth Client ID tipe **Web application** dari Google Cloud. Untuk And
 
 > Jangan masukkan client secret atau signing keystore ke source repository.
 
-## Axynera SDK
+## Axynera SDK v0.3.0
 
-Aplikasi direncanakan memakai SDK resmi dari `https://sdk.axynera.my.id`. Integrasi method SDK akan dipasang sesuai dokumentasi resmi agar tidak mengandalkan API yang ditebak. Sampai dokumentasi SDK dapat diakses, `src/api.js` tetap menjadi fallback REST ke endpoint resmi Axynera.
+Aplikasi sekarang memakai SDK resmi Axynera yang dipin ke versi `0.3.0` agar update runtime terbaru tidak mengubah perilaku aplikasi secara mendadak.
+
+Method yang disiapkan melalui `src/api.js`:
+
+- `chat()`
+- `stream()`
+- `vision()`
+- `search()`
+- `inspectWeb()`
+- `sandbox()`
+- `createFile()`
+- `saveToDrive()`
+- `models()`
+- `identity()`
+- `conversation()`
+
+`createFile()` dan `saveToDrive()` tetap dianggap backend-dependent sampai pipeline sandbox → binary file → Google Drive selesai end-to-end di backend Axynera.
+
+OpenAI compatibility tetap tersedia di `POST https://api.axynera.my.id/v1/chat/completions`, dan Anthropic compatibility di `POST https://api.axynera.my.id/v1/messages`.
 
 ## Permission Android
 
@@ -45,7 +64,7 @@ Workflow menambahkan permission berikut saat project Android dibuat:
 - Notifikasi
 - Foto, video, dan audio melalui izin media Android modern
 
-Akses file umum sebaiknya memakai Android system file picker, bukan `MANAGE_EXTERNAL_STORAGE`. Akses daftar semua aplikasi juga tidak diberikan secara global karena Android/Google Play membatasinya.
+Akses file umum memakai Android system file picker, bukan `MANAGE_EXTERNAL_STORAGE`. Akses aplikasi lain menggunakan Intent/queries yang diperlukan, bukan `QUERY_ALL_PACKAGES` global.
 
 ## Development
 
