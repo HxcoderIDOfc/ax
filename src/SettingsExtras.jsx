@@ -1,4 +1,4 @@
-import{useState}from'react';import{BadgeInfo,Brain,ChevronDown,Database,HelpCircle,Info,LockKeyhole,ShieldCheck,Sparkles,UserCog}from'lucide-react';
+import{useState}from'react';import{BadgeInfo,Brain,ChevronDown,Database,HelpCircle,Info,LockKeyhole,ShieldCheck,Sparkles,UserCog}from'lucide-react';import'./settings-extra.css';
 const APP_VERSION='0.1.0';
 function Row({icon:Icon,title,subtitle,open,onClick}){return <button type="button" className={`settings-extra-row ${open?'open':''}`} onClick={onClick}><span className="settings-extra-icon"><Icon size={18}/></span><span className="settings-extra-copy"><b>{title}</b><small>{subtitle}</small></span><ChevronDown size={17} className="settings-extra-chevron"/></button>}
 export default function SettingsExtras({user}){const[open,setOpen]=useState('');const toggle=id=>setOpen(v=>v===id?'':id);const plan=String(user?.plan||'Free');const role=user?.developer?'Developer':(user?.role||'User');return <div className="settings-extras"><h4>Pengaturan lainnya</h4><div className="settings-extra-card">
