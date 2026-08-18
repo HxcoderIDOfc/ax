@@ -108,7 +108,7 @@ jobs:
               s = re.sub(r'\s*<item name="android:statusBarColor">.*?</item>', '', s)
               s = re.sub(r'\s*<item name="android:navigationBarColor">.*?</item>', '', s)
               s = re.sub(r'\s*<item name="android:windowLightNavigationBar">.*?</item>', '', s)
-              s = re.sub(r'(<style[^>]*name="AppTheme[^\"]*"[^>]*>)', r'\1\n        <item name="android:windowLightStatusBar">false</item>\n        <item name="android:statusBarColor">@android:color/transparent</item>\n        <item name="android:navigationBarColor">#090D16</item>\n        <item name="android:windowLightNavigationBar">false</item>', s)
+              s = re.sub(r'(<style[^>]*name="AppTheme[^\"]*"[^>]*>)', r'\1\n        <item name="android:windowLightStatusBar">false</item>\n        <item name="android:statusBarColor">#080C13</item>\n        <item name="android:navigationBarColor">#090D16</item>\n        <item name="android:windowLightNavigationBar">false</item>', s)
               p.write_text(s)
 
       - name: Restore release keystore
