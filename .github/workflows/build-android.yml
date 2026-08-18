@@ -68,7 +68,7 @@ jobs:
       - name: Sync Android
         run: npx cap sync android
 
-      - name: Force black Android status strip
+      - name: Force white Android status strip
         shell: python
         run: |
           from pathlib import Path
@@ -77,7 +77,7 @@ jobs:
               s = p.read_text()
               def patch_style(m):
                   block = m.group(0)
-                  items = '''    <item name="android:windowLightStatusBar">false</item>\n        <item name="android:statusBarColor">#05070B</item>\n        <item name="android:navigationBarColor">#090D16</item>\n        <item name="android:windowLightNavigationBar">false</item>\n'''
+                  items = '''    <item name="android:windowLightStatusBar">true</item>\n        <item name="android:statusBarColor">#FFFFFF</item>\n        <item name="android:navigationBarColor">#090D16</item>\n        <item name="android:windowLightNavigationBar">false</item>\n'''
                   block = re.sub(r'\s*<item name="android:windowLightStatusBar">.*?</item>', '', block)
                   block = re.sub(r'\s*<item name="android:statusBarColor">.*?</item>', '', block)
                   block = re.sub(r'\s*<item name="android:navigationBarColor">.*?</item>', '', block)
