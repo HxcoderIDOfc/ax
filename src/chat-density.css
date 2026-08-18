@@ -1,0 +1,19 @@
+/* Compact Nera chat density */
+.chat-page .messages{padding-top:14px!important;padding-bottom:174px!important}
+.chat-page .message{gap:8px!important;margin:10px 0!important}
+.chat-page .msg-avatar{width:28px!important;height:28px!important;border-radius:9px!important;flex:none}
+.chat-page .msg-avatar svg{width:17px!important;height:17px!important}
+.chat-page .bubble{max-width:min(720px,86%)!important;padding:10px 12px!important;border-radius:15px!important;font-size:14px!important;line-height:1.48!important}
+.chat-page .message-stack{gap:4px!important}
+.chat-page .final-label{font-size:9px!important;margin-bottom:3px!important;letter-spacing:.1em}
+.chat-page .message-actions{font-size:11px!important;gap:10px!important;margin-top:4px!important}
+.chat-page .message-actions button{font-size:11px!important;padding:4px 2px!important}
+.chat-page .message-actions svg{width:15px!important;height:15px!important}
+.chat-page .thinking-card{font-size:12px!important}
+.chat-page .composer textarea{font-size:14px!important;line-height:1.4!important}
+@media(max-width:760px){
+ .chat-page .messages{padding-left:13px!important;padding-right:13px!important;padding-top:10px!important}
+ .chat-page .bubble{font-size:13.5px!important;line-height:1.46!important;padding:9px 11px!important;max-width:88%!important}
+ .chat-page .message{margin:8px 0!important}
+ .chat-page .msg-avatar{width:27px!important;height:27px!important}
+}
