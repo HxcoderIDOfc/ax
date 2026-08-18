@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import AppV2 from './AppV2.jsx'
 import './styles.css'
+import './nav-connectors.css'
 import { configureNativeUi } from './native.js'
 
 configureNativeUi()
