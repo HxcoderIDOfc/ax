@@ -1,0 +1,17 @@
+@media(max-width:760px){
+  :root{--nera-safe-top:max(env(safe-area-inset-top),28px)}
+  .main{padding-top:0!important}
+  .topbar{
+    top:0!important;
+    min-height:calc(62px + var(--nera-safe-top))!important;
+    height:calc(62px + var(--nera-safe-top))!important;
+    padding-top:var(--nera-safe-top)!important;
+    background:rgba(8,12,19,.96)!important;
+  }
+  .side{
+    top:0!important;
+    height:100dvh!important;
+    padding-top:calc(var(--nera-safe-top) + 14px)!important;
+  }
+  .side-overlay{top:0!important}
+}
