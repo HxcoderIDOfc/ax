@@ -51,3 +51,8 @@ export async function requestCoreMediaPermissions() {
     stream.getTracks().forEach(track => track.stop())
   } catch {}
 }
+
+function currentClock(){const now=new Date();return{iso:now.toISOString(),local_time:new Intl.DateTimeFormat('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(now),local_date:new Intl.DateTimeFormat('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(now),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||null,utc_offset_minutes:-now.getTimezoneOffset()}}
+function gpsOnce(timeout=7000){return new Promise(resolve=>{if(!navigator.geolocation)return resolve(null);navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy_m:p.coords.accuracy}),()=>resolve(null),{enableHighAccuracy:true,timeout,maximumAge:60000})})}
+async function publicIp(){try{const r=await fetch('https://api.ipify.org?format=json',{cache:'no-store'});if(!r.ok)return null;const d=await r.json();return d?.ip||null}catch{return null}}
+export async function getDeviceContext({includeLocation=true,includeIp=true}={}){const base=currentClock();const [location,ip]=await Promise.all([includeLocation?gpsOnce():Promise.resolve(null),includeIp?publicIp():Promise.resolve(null)]);return{...base,public_ip:ip,location}}
