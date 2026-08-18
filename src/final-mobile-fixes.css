@@ -5,12 +5,28 @@
   .shell,.main{min-height:100dvh!important;height:100dvh!important}
   .main{padding-top:0!important;padding-bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important;overflow:auto!important}
   .topbar{top:0!important;height:72px!important;min-height:72px!important;padding-top:0!important;background:#080c13!important;z-index:120!important}
-  .bottom-nav{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;background:#090d16!important;border-top:1px solid rgba(255,255,255,.08)!important;z-index:999!important;transform:none!important}
-  .bottom-nav button{display:flex!important;visibility:visible!important;opacity:1!important;min-width:0!important}
-  .bottom-nav .nav-chat{display:flex!important;transform:translateY(-14px)!important}
-  .keyboard-open .bottom-nav{display:none!important}
+  .bottom-nav,
+  .keyboard-open .bottom-nav{
+    display:grid!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
+    bottom:0!important;
+    width:100vw!important;
+    height:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    background:#090d16!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    z-index:2147483646!important;
+    transform:none!important;
+  }
+  .bottom-nav button,.keyboard-open .bottom-nav button{display:flex!important;visibility:visible!important;opacity:1!important;min-width:0!important}
+  .bottom-nav .nav-chat,.keyboard-open .bottom-nav .nav-chat{display:flex!important;transform:translateY(-14px)!important}
   .page{padding-bottom:calc(120px + var(--nera-safe-bottom))!important}
   .chat-page{height:calc(100dvh - 72px)!important;padding-bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom) + 110px)!important}
   .composer-wrap{bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important}
-  .keyboard-open .composer-wrap{bottom:0!important}
+  .keyboard-open .composer-wrap{bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important}
 }
