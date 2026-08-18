@@ -109,7 +109,7 @@ jobs:
               s = re.sub(r'(<style[^>]*name="AppTheme[^\"]*"[^>]*>)', r'\1\n        <item name="android:windowLightStatusBar">false</item>\n        <item name="android:statusBarColor">#080C13</item>\n        <item name="android:navigationBarColor">#090D16</item>\n        <item name="android:windowLightNavigationBar">false</item>', s)
               p.write_text(s)
 
-      - name: Patch MainActivity status bar
+      - name: Patch MainActivity status bar for Android 15+
         shell: python
         run: |
           from pathlib import Path
@@ -119,11 +119,18 @@ jobs:
               raise SystemExit("MainActivity.java not found")
           p = files[0]
           s = p.read_text()
-          if 'SYSTEM_UI_FLAG_LIGHT_STATUS_BAR' not in s:
-              s = s.replace('import android.os.Bundle;', 'import android.os.Bundle;\nimport android.graphics.Color;\nimport android.view.View;\nimport android.view.Window;') if 'import android.os.Bundle;' in s else s
-              body = '''\n  @Override\n  protected void onResume() {\n    super.onResume();\n    Window w = getWindow();\n    w.setStatusBarColor(Color.rgb(8, 12, 19));\n    View decor = w.getDecorView();\n    decor.setSystemUiVisibility(decor.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);\n  }\n'''
-              s = re.sub(r'\n}\s*$', body + '\n}\n', s)
-              p.write_text(s)
+          # Remove older generated status-bar override if this workflow has seen it before.
+          s = re.sub(r'\n\s*@Override\s*\n\s*protected void onResume\(\) \{[\s\S]*?\n\s*\}\s*(?=\n\})', '\n', s)
+          imports = '''import android.graphics.Color;\nimport android.os.Bundle;\nimport android.view.Window;\nimport androidx.core.view.WindowCompat;\nimport androidx.core.view.WindowInsetsControllerCompat;'''
+          if 'androidx.core.view.WindowInsetsControllerCompat' not in s:
+              if 'import android.os.Bundle;' in s:
+                  s = s.replace('import android.os.Bundle;', imports)
+              else:
+                  pkg_end = s.find(';') + 1
+                  s = s[:pkg_end] + '\n\n' + imports + s[pkg_end:]
+          body = '''\n  private void applyNeraSystemBars() {\n    Window window = getWindow();\n    WindowCompat.setDecorFitsSystemWindows(window, true);\n    window.setStatusBarColor(Color.rgb(8, 12, 19));\n    window.setNavigationBarColor(Color.rgb(9, 13, 22));\n    WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());\n    controller.setAppearanceLightStatusBars(false);\n    controller.setAppearanceLightNavigationBars(false);\n  }\n\n  @Override\n  protected void onResume() {\n    super.onResume();\n    applyNeraSystemBars();\n  }\n'''
+          s = re.sub(r'\n}\s*$', body + '\n}\n', s)
+          p.write_text(s)
 
       - name: Restore release keystore
         shell: bash
