@@ -20,26 +20,37 @@ export async function configureNativeUi() {
   let inputFocused=false
   let blurTimer
   const setKeyboard=open=>document.documentElement.classList.toggle('keyboard-open',!!open)
+  const currentHeight=()=>Math.min(window.innerHeight,vv?.height||window.innerHeight)
   const syncKeyboard=()=>{
-    const current=Math.min(window.innerHeight,vv?.height||window.innerHeight)
-    baseline=Math.max(baseline,window.innerHeight,vv?.height||0)
-    const shrunk=baseline-current>120
-    setKeyboard(inputFocused||shrunk)
+    const current=currentHeight()
+    if(!inputFocused&&current>=baseline-70){
+      baseline=Math.max(baseline,current,window.innerHeight)
+      setKeyboard(false)
+      return
+    }
+    const shrunk=baseline-current>160
+    setKeyboard(inputFocused&&shrunk)
+    if(!inputFocused&&!shrunk)setKeyboard(false)
   }
   document.addEventListener('focusin',e=>{
     if(e.target?.matches?.('textarea,input,[contenteditable="true"]')){
-      clearTimeout(blurTimer);inputFocused=true;setKeyboard(true);setTimeout(syncKeyboard,60)
+      clearTimeout(blurTimer)
+      inputFocused=true
+      setTimeout(syncKeyboard,120)
     }
   })
   document.addEventListener('focusout',e=>{
     if(e.target?.matches?.('textarea,input,[contenteditable="true"]')){
-      inputFocused=false;clearTimeout(blurTimer);blurTimer=setTimeout(syncKeyboard,180)
+      inputFocused=false
+      clearTimeout(blurTimer)
+      blurTimer=setTimeout(()=>{syncKeyboard();setKeyboard(false)},220)
     }
   })
   vv?.addEventListener('resize',syncKeyboard)
   vv?.addEventListener('scroll',syncKeyboard)
   window.addEventListener('resize',syncKeyboard)
-  window.addEventListener('orientationchange',()=>{baseline=0;setTimeout(()=>{baseline=Math.max(window.innerHeight,vv?.height||0);syncKeyboard()},350)})
+  window.addEventListener('orientationchange',()=>{baseline=0;setKeyboard(false);setTimeout(()=>{baseline=Math.max(window.innerHeight,vv?.height||0);syncKeyboard()},350)})
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){inputFocused=false;setKeyboard(false)}})
   syncKeyboard()
 }
 
