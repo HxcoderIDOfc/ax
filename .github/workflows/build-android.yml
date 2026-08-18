@@ -73,7 +73,6 @@ jobs:
         run: |
           from pathlib import Path
           import re
-
           for p in Path("android/app/src/main/res").glob("values*/styles.xml"):
               s = p.read_text()
               def patch_style(m):
@@ -101,28 +100,35 @@ jobs:
         run: |
           from pathlib import Path
           import os, re
-
           manifest = Path("android/app/src/main/AndroidManifest.xml")
           text = manifest.read_text()
-          if "android.permission.RECORD_AUDIO" not in text:
-              additions = """    <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
+          permissions = """    <uses-permission android:name=\"android.permission.INTERNET\" />
+              <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
               <uses-permission android:name=\"android.permission.CAMERA\" />
               <uses-permission android:name=\"android.permission.RECORD_AUDIO\" />
               <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
+              <uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />
+              <uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />
               <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />
               <uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\" />
               <uses-permission android:name=\"android.permission.READ_MEDIA_AUDIO\" />
               <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" />
           """
-              text = text.replace("<application", additions + "\n    <application", 1)
-              manifest.write_text(text)
+          names = [
+            'INTERNET','ACCESS_NETWORK_STATE','CAMERA','RECORD_AUDIO','POST_NOTIFICATIONS',
+            'ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','READ_MEDIA_IMAGES','READ_MEDIA_VIDEO',
+            'READ_MEDIA_AUDIO','READ_EXTERNAL_STORAGE'
+          ]
+          for name in names:
+              text = re.sub(r'\s*<uses-permission[^>]*android:name="android.permission.'+name+r'"[^>]*/>', '', text)
+          text = text.replace("<application", permissions + "\n    <application", 1)
+          manifest.write_text(text)
 
           gradle = Path("android/app/build.gradle")
           g = gradle.read_text()
           code = os.environ["VERSION_CODE"]
           g = re.sub(r"versionCode\s+\d+", f"versionCode {code}", g)
           g = re.sub(r"versionName\s+\"[^\"]+\"", f"versionName \"0.1.{code}\"", g)
-
           signing = """    signingConfigs {
               neraRelease {
                   storeFile file(\"../keystore/nera-release.jks\")
