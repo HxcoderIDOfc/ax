@@ -81,13 +81,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq imagemagick
           shopt -s nullglob
-
           for f in android/app/src/main/res/mipmap-*/ic_launcher*.png; do
             w=$(identify -format '%w' "$f")
             size=$((w * 64 / 100))
             convert nera-logo.png -background none -resize "${size}x${size}" -gravity center -extent "${w}x${w}" "$f"
           done
-
           for f in android/app/src/main/res/drawable*/splash.png; do
             w=$(identify -format '%w' "$f")
             h=$(identify -format '%h' "$f")
@@ -109,6 +107,22 @@ jobs:
               s = re.sub(r'\s*<item name="android:navigationBarColor">.*?</item>', '', s)
               s = re.sub(r'\s*<item name="android:windowLightNavigationBar">.*?</item>', '', s)
               s = re.sub(r'(<style[^>]*name="AppTheme[^\"]*"[^>]*>)', r'\1\n        <item name="android:windowLightStatusBar">false</item>\n        <item name="android:statusBarColor">#080C13</item>\n        <item name="android:navigationBarColor">#090D16</item>\n        <item name="android:windowLightNavigationBar">false</item>', s)
+              p.write_text(s)
+
+      - name: Patch MainActivity status bar
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          files = list(Path("android/app/src/main/java").rglob("MainActivity.java"))
+          if not files:
+              raise SystemExit("MainActivity.java not found")
+          p = files[0]
+          s = p.read_text()
+          if 'SYSTEM_UI_FLAG_LIGHT_STATUS_BAR' not in s:
+              s = s.replace('import android.os.Bundle;', 'import android.os.Bundle;\nimport android.graphics.Color;\nimport android.view.View;\nimport android.view.Window;') if 'import android.os.Bundle;' in s else s
+              body = '''\n  @Override\n  protected void onResume() {\n    super.onResume();\n    Window w = getWindow();\n    w.setStatusBarColor(Color.rgb(8, 12, 19));\n    View decor = w.getDecorView();\n    decor.setSystemUiVisibility(decor.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);\n  }\n'''
+              s = re.sub(r'\n}\s*$', body + '\n}\n', s)
               p.write_text(s)
 
       - name: Restore release keystore
@@ -139,30 +153,17 @@ jobs:
               <uses-permission android:name=\"android.permission.READ_MEDIA_AUDIO\" />
               <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" />
           """
-          names = [
-            'INTERNET','ACCESS_NETWORK_STATE','CAMERA','RECORD_AUDIO','POST_NOTIFICATIONS',
-            'ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','READ_MEDIA_IMAGES','READ_MEDIA_VIDEO',
-            'READ_MEDIA_AUDIO','READ_EXTERNAL_STORAGE'
-          ]
+          names = ['INTERNET','ACCESS_NETWORK_STATE','CAMERA','RECORD_AUDIO','POST_NOTIFICATIONS','ACCESS_COARSE_LOCATION','ACCESS_FINE_LOCATION','READ_MEDIA_IMAGES','READ_MEDIA_VIDEO','READ_MEDIA_AUDIO','READ_EXTERNAL_STORAGE']
           for name in names:
               text = re.sub(r'\s*<uses-permission[^>]*android:name="android.permission.'+name+r'"[^>]*/>', '', text)
           text = text.replace("<application", permissions + "\n    <application", 1)
           manifest.write_text(text)
-
           gradle = Path("android/app/build.gradle")
           g = gradle.read_text()
           code = os.environ["VERSION_CODE"]
           g = re.sub(r"versionCode\s+\d+", f"versionCode {code}", g)
           g = re.sub(r"versionName\s+\"[^\"]+\"", f"versionName \"0.1.{code}\"", g)
-          signing = """    signingConfigs {
-              neraRelease {
-                  storeFile file(\"../keystore/nera-release.jks\")
-                  storePassword System.getenv(\"NERA_KEYSTORE_PASSWORD\")
-                  keyAlias System.getenv(\"NERA_KEY_ALIAS\")
-                  keyPassword System.getenv(\"NERA_KEY_PASSWORD\")
-              }
-          }
-          """
+          signing = """    signingConfigs {\n        neraRelease {\n            storeFile file(\"../keystore/nera-release.jks\")\n            storePassword System.getenv(\"NERA_KEYSTORE_PASSWORD\")\n            keyAlias System.getenv(\"NERA_KEY_ALIAS\")\n            keyPassword System.getenv(\"NERA_KEY_PASSWORD\")\n        }\n    }\n"""
           if "neraRelease" not in g:
               g = g.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
           g = g.replace("release {\n", "release {\n            signingConfig signingConfigs.neraRelease\n", 1)
