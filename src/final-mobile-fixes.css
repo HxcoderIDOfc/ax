@@ -1,10 +1,10 @@
 /* FINAL mobile overrides: imported last on purpose. */
 @media (max-width:760px){
-  :root{--nera-safe-top:0px!important;--nera-bottom-nav:70px!important;--nera-safe-bottom:max(env(safe-area-inset-bottom),0px)!important}
+  :root{--nera-safe-top:8px!important;--nera-bottom-nav:70px!important;--nera-safe-bottom:max(env(safe-area-inset-bottom),0px)!important}
   html,body,#root{min-height:100dvh!important;height:100dvh!important;overflow:hidden!important;background:#080c13!important}
   .shell,.main{min-height:100dvh!important;height:100dvh!important}
   .main{padding-top:0!important;padding-bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important;overflow:auto!important}
-  .topbar{top:0!important;height:72px!important;min-height:72px!important;padding-top:0!important;background:#080c13!important;z-index:120!important}
+  .topbar{top:0!important;height:80px!important;min-height:80px!important;padding-top:8px!important;background:#080c13!important;z-index:120!important}
 
   nav.bottom-nav,
   body.keyboard-open nav.bottom-nav,
@@ -69,6 +69,6 @@
   nav.bottom-nav>button.profile-nav img{display:block!important;width:23px!important;height:23px!important;border-radius:50%!important;object-fit:cover!important;border:1.5px solid rgba(156,93,255,.72)!important}
 
   .page{padding-bottom:calc(108px + var(--nera-safe-bottom))!important}
-  .chat-page{height:calc(100dvh - 72px)!important;padding-bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom) + 100px)!important}
+  .chat-page{height:calc(100dvh - 80px)!important;padding-bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom) + 100px)!important}
   .composer-wrap,.keyboard-open .composer-wrap{bottom:calc(var(--nera-bottom-nav) + var(--nera-safe-bottom))!important}
 }
