@@ -11,9 +11,14 @@
 .chat-page .message-actions svg{width:15px!important;height:15px!important}
 .chat-page .thinking-card{font-size:12px!important}
 .chat-page .composer textarea{font-size:14px!important;line-height:1.4!important}
+.axy-file-card{margin-top:10px;padding:10px;border:1px solid rgba(143,84,255,.28);border-radius:13px;background:linear-gradient(145deg,rgba(22,28,42,.96),rgba(13,18,28,.98));display:grid;grid-template-columns:38px minmax(0,1fr);gap:9px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.18),inset 0 0 0 1px rgba(87,220,255,.025)}
+.axy-file-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#a96eff;background:rgba(139,75,255,.12);border:1px solid rgba(139,75,255,.18)}
+.axy-file-info{min-width:0}.axy-file-info b,.axy-file-info small{display:block}.axy-file-info b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.axy-file-info small{margin-top:2px;color:#7f899d;font-size:10px}
+.axy-file-actions{grid-column:1/-1;display:flex;gap:7px}.axy-file-actions a,.axy-file-actions button{flex:1;min-height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;gap:6px;font-size:10.5px;font-weight:700;text-decoration:none}.axy-file-actions a{background:linear-gradient(145deg,#7c42ef,#6030d7);color:#fff}.axy-file-actions button{background:#111824;color:#c9cfdd}
 @media(max-width:760px){
  .chat-page .messages{padding-left:13px!important;padding-right:13px!important;padding-top:10px!important}
  .chat-page .bubble{font-size:13.5px!important;line-height:1.46!important;padding:9px 11px!important;max-width:88%!important}
  .chat-page .message{margin:8px 0!important}
  .chat-page .msg-avatar{width:27px!important;height:27px!important}
+ .axy-file-card{padding:9px}.axy-file-actions a,.axy-file-actions button{font-size:10px}
 }
