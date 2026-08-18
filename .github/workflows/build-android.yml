@@ -46,6 +46,13 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Prepare Nera branding asset
+        shell: bash
+        run: |
+          test -f nera-logo.png
+          mkdir -p public
+          cp nera-logo.png public/nera-logo.png
+
       - name: Validate local SDK loader
         run: node --check src/vendor/axynera.mjs
 
@@ -67,6 +74,28 @@ jobs:
 
       - name: Sync Android
         run: npx cap sync android
+
+      - name: Apply Nera Android branding
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+          shopt -s nullglob
+
+          for f in android/app/src/main/res/mipmap-*/ic_launcher*.png; do
+            w=$(identify -format '%w' "$f")
+            size=$((w * 82 / 100))
+            convert nera-logo.png -background none -resize "${size}x${size}" -gravity center -extent "${w}x${w}" "$f"
+          done
+
+          for f in android/app/src/main/res/drawable*/splash.png; do
+            w=$(identify -format '%w' "$f")
+            h=$(identify -format '%h' "$f")
+            min=$w
+            [ "$h" -lt "$w" ] && min=$h
+            size=$((min * 42 / 100))
+            convert nera-logo.png -resize "${size}x${size}" -background '#090D16' -gravity center -extent "${w}x${h}" "$f"
+          done
 
       - name: Force white Android status strip
         shell: python
