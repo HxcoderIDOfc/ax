@@ -15,6 +15,18 @@ export async function configureNativeUi() {
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)applyStatusBar()})
   window.addEventListener('focus',applyStatusBar)
 
+  const jumpChatToLatest=()=>{
+    const el=document.querySelector('.messages')
+    if(el)el.scrollTo({top:el.scrollHeight,behavior:'auto'})
+  }
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('.side-history-open')){
+      setTimeout(jumpChatToLatest,90)
+      setTimeout(jumpChatToLatest,240)
+      setTimeout(jumpChatToLatest,420)
+    }
+  })
+
   const vv=window.visualViewport
   let baseline=Math.max(window.innerHeight,vv?.height||0)
   let inputFocused=false
