@@ -4,9 +4,9 @@ import { StatusBar, Style } from '@capacitor/status-bar'
 async function applyStatusBar(){
   if (!Capacitor.isNativePlatform()) return
   try {
-    await StatusBar.setOverlaysWebView({ overlay: false })
-    await StatusBar.setBackgroundColor({ color: '#ffffff' })
-    await StatusBar.setStyle({ style: Style.Dark })
+    await StatusBar.setOverlaysWebView({ overlay: true })
+    await StatusBar.setBackgroundColor({ color: '#00000000' })
+    await StatusBar.setStyle({ style: Style.Light })
   } catch {}
 }
 
