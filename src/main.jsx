@@ -4,6 +4,7 @@ import AppV2 from './AppV2.jsx'
 import './styles.css'
 import './nav-connectors.css'
 import './chat-density.css'
+import './status-overlay.css'
 import { configureNativeUi } from './native.js'
 
 configureNativeUi()
