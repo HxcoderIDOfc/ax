@@ -6,6 +6,7 @@ import './nav-connectors.css'
 import './chat-density.css'
 import './status-overlay.css'
 import './final-mobile-fixes.css'
+import './global-neon-white.css'
 import { configureNativeUi } from './native.js'
 
 configureNativeUi()
